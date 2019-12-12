@@ -13,8 +13,12 @@ class BaseIndentCommand(sublime_plugin.TextCommand):
         self.language = self.get_language()
 
     def get_language(self):
-        syntax = self.view.settings().get('syntax')
-        language = splitext(basename(syntax))[0].lower() if syntax is not None else "plain text"
+        syntax = self.view.settings().get("syntax")
+        language = (
+            splitext(basename(syntax))[0].lower()
+            if syntax is not None
+            else "plain text"
+        )
         return language
 
     def check_enabled(self, lang):
@@ -59,25 +63,55 @@ class BaseIndentCommand(sublime_plugin.TextCommand):
 class AutoIndentCommand(BaseIndentCommand):
     def get_text_type(self, s):
         language = self.language
-        if language == 'xml':
-            return 'xml'
-        if language == 'json':
-            return 'json'
-        if language == 'plain text' and s:
-            if s[0] == '<':
-                return 'xml'
-            if s[0] == '{' or s[0] == '[':
-                return 'json'
+        if language == "xml":
+            return "xml"
+        if language == "json":
+            return "json"
+        if language == "plain text" and s:
+            if s[0] == "<":
+                return "xml"
+            if s[0] == "{" or s[0] == "[":
+                return "json"
 
-        return 'notsupported'
+        return "notsupported"
 
     def indent(self, s):
         text_type = self.get_text_type(s)
-        if text_type == 'xml':
+        if text_type == "xml":
             command = IndentXmlCommand(self.view)
-        if text_type == 'json':
+        if text_type == "json":
             command = IndentJsonCommand(self.view)
-        if text_type == 'notsupported':
+        if text_type == "notsupported":
+            return s
+
+        return command.indent(s)
+
+    def check_enabled(self, lang):
+        return True
+
+
+class AutoUnindentCommand(BaseIndentCommand):
+    def get_text_type(self, s):
+        language = self.language
+        if language == "xml":
+            return "xml"
+        if language == "json":
+            return "json"
+        if language == "plain text" and s:
+            if s[0] == "<":
+                return "xml"
+            if s[0] == "{" or s[0] == "[":
+                return "json"
+
+        return "notsupported"
+
+    def indent(self, s):
+        text_type = self.get_text_type(s)
+        if text_type == "xml":
+            command = IndentXmlCommand(self.view)
+        if text_type == "json":
+            command = UnindentJsonCommand(self.view)
+        if text_type == "notsupported":
             return s
 
         return command.indent(s)
@@ -91,24 +125,28 @@ class IndentXmlCommand(BaseIndentCommand):
         # figure out encoding
         utfEncoded = s.encode("utf-8")
         encoding = "utf-8"
-        encoding_match = re.compile(b"<\?.*encoding=\"(.*?)\".*\?>").match(utfEncoded)
+        encoding_match = re.compile(b'<\?.*encoding="(.*?)".*\?>').match(utfEncoded)
         if encoding_match:
             encoding = encoding_match.group(1).decode("utf-8").lower()
 
         s = s.encode(encoding)
         xml_header = re.compile(b"<\?.*\?>").match(s)
         # convert to plain string without indents and spaces
-        s = re.compile(b'>\s+([^\s])', re.DOTALL).sub(b'>\g<1>', s)
+        s = re.compile(b">\s+([^\s])", re.DOTALL).sub(b">\g<1>", s)
         try:
             s = parseString(s).toprettyxml()
         except ExpatError as err:
-            message = "Invalid XML: %s line:%d:col:%d" % (errors.messages[err.code], err.lineno, err.offset)
+            message = "Invalid XML: %s line:%d:col:%d" % (
+                errors.messages[err.code],
+                err.lineno,
+                err.offset,
+            )
             sublime.status_message(message)
             return
         # remove line breaks
-        s = re.compile('>\n\s+([^<>\s].*?)\n\s+</', re.DOTALL).sub('>\g<1></', s)
+        s = re.compile(">\n\s+([^<>\s].*?)\n\s+</", re.DOTALL).sub(">\g<1></", s)
         # remove xml header
-        s = s.replace("<?xml version=\"1.0\" ?>", "").strip()
+        s = s.replace('<?xml version="1.0" ?>', "").strip()
         if xml_header:
             s = xml_header.group().decode(encoding) + "\n" + s
         return s
@@ -123,4 +161,17 @@ class IndentJsonCommand(BaseIndentCommand):
 
     def indent(self, s):
         parsed = json.loads(s)
-        return json.dumps(parsed, sort_keys=True, indent=4, separators=(',', ': '), ensure_ascii=False)
+        return json.dumps(
+            parsed, sort_keys=True, indent=4, separators=(",", ": "), ensure_ascii=False
+        )
+
+
+class UnindentJsonCommand(BaseIndentCommand):
+    def check_enabled(self, language):
+        return (language == "json") or (language == "plain text")
+
+    def indent(self, s):
+        parsed = json.loads(s)
+        return json.dumps(
+            parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        )

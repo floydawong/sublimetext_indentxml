@@ -1,3 +1,4 @@
 [
-	{ "keys": ["super+k", "super+f"], "command": "auto_indent" }
+    { "keys": ["super+k", "super+f"], "command": "auto_indent" },
+    { "keys": ["super+k", "super+g"], "command": "auto_unindent" }
 ]

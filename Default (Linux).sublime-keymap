@@ -1,3 +1,4 @@
 [
-	{ "keys": ["ctrl+k", "ctrl+f"], "command": "auto_indent" }
+    { "keys": ["ctrl+k", "ctrl+f"], "command": "auto_indent" },
+    { "keys": ["ctrl+k", "ctrl+g"], "command": "auto_unindent" }
 ]
